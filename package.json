@@ -1,0 +1,29 @@
+{
+  "name": "db-midterm-studio",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Interactive, mastery-based study app for the SOC3020 Databases midterm (Weeks 1–6).",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "tsc --noEmit && vitest run"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "sql.js": "1.13.0"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@types/sql.js": "1.4.9",
+    "@vitejs/plugin-react": "4.7.0",
+    "typescript": "5.6.3",
+    "vite": "5.4.21",
+    "vitest": "2.1.9"
+  }
+}

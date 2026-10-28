@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.claude/
+.DS_Store
+# Course materials (copyrighted lecture slides/syllabus) are kept local only
+*.pdf

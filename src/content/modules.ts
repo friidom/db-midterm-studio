@@ -1,0 +1,186 @@
+import type { ModuleDef, SourceRef } from '../lib/types';
+
+export const L = (n: number, slides: string): SourceRef => ({
+  lecture: `Lecture ${n}`,
+  file: ['', 'lecture1-1.pdf', 'lecture2-1.pdf', 'lecture3-1.pdf', 'lecture4-1.pdf', 'lecture5-1.pdf', 'lecture6.pdf', 'lecture7.pdf'][n],
+  slides,
+});
+export const SYL = (slides: string): SourceRef => ({ lecture: 'Syllabus', file: 'Databases_Syllabus.pdf', slides });
+
+export const MODULES: ModuleDef[] = [
+  {
+    id: 'm1', num: 1, title: 'Relational Model & Relational Algebra', short: 'Relational Algebra', week: 'Week 1', lectures: 'Lecture 1',
+    blurb: 'Relations, keys and constraints, then the algebra: σ, π, ∪, ∩, −, ×, ⋈ and how to compose them.',
+    prereqs: [],
+    skills: [
+      { id: 'ra-model', label: 'Relational model concepts', lesson: 'm1-l1' },
+      { id: 'ra-select', label: 'Selection & projection', lesson: 'm1-l2' },
+      { id: 'ra-setops', label: 'Set operations', lesson: 'm1-l3' },
+      { id: 'ra-join', label: 'Product & joins', lesson: 'm1-l3' },
+      { id: 'ra-compose', label: 'Composition & extended operators', lesson: 'm1-l4' },
+    ],
+    test: { size: 10, pass: 0.8 },
+    examWeight: 0.12,
+    objectives: ['Define relation, tuple, attribute, arity, primary & foreign keys', 'Evaluate any σ/π/∪/∩/−/×/⋈ expression by hand', 'Translate a data question into a relational algebra expression', 'Explain why operator order matters for cost but not for the answer'],
+    formulas: [
+      { label: '|R × S|', md: '|R| · |S| tuples, arity(R) + arity(S) attributes' },
+      { label: 'Natural join', md: 'R ⋈ S = π[all attrs once](σ[common attrs equal](R × S))' },
+      { label: 'Union-compatible', md: '∪ ∩ − need the same attributes in both inputs' },
+    ],
+    examTips: ['Relational algebra is SET based: always remove duplicates in your answer.', 'Write intermediate relations as small tables — examiners give credit for them.', 'A natural join with no common attributes is a Cartesian product.'],
+  },
+  {
+    id: 'm2', num: 2, title: 'Modern SQL', short: 'SQL', week: 'Week 2', lectures: 'Lecture 2',
+    blurb: 'Bag semantics, aggregation, GROUP BY / HAVING, NULLs, nested queries, window functions and CTEs — with a real SQL engine.',
+    prereqs: ['m1'],
+    skills: [
+      { id: 'sql-basics', label: 'SELECT-FROM-WHERE, joins & bags', lesson: 'm2-l1' },
+      { id: 'sql-agg', label: 'Aggregates & GROUP BY', lesson: 'm2-l2' },
+      { id: 'sql-having', label: 'WHERE vs HAVING & logical order', lesson: 'm2-l3' },
+      { id: 'sql-null', label: 'NULL & three-valued logic', lesson: 'm2-l4' },
+      { id: 'sql-misc', label: 'LIKE, ORDER BY, FETCH, output', lesson: 'm2-l5' },
+      { id: 'sql-nested', label: 'Nested queries', lesson: 'm2-l6' },
+      { id: 'sql-window', label: 'Window functions & CTEs', lesson: 'm2-l7' },
+    ],
+    test: { size: 12, pass: 0.8, require: [{ skill: 'sql-agg', min: 2, label: 'Aggregation / GROUP BY questions' }] },
+    examWeight: 0.18,
+    objectives: ['Predict the exact output (including duplicates and NULLs) of a SQL query', 'Write queries with joins, GROUP BY, HAVING and subqueries', 'Explain the logical order FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY', 'Use window functions and CTEs'],
+    formulas: [
+      { label: 'Logical order', md: 'FROM/JOIN → WHERE → GROUP BY → HAVING → SELECT → DISTINCT → ORDER BY → LIMIT' },
+      { label: 'COUNT', md: 'COUNT(*) counts rows; COUNT(col) skips NULLs' },
+      { label: 'IN', md: 'x IN (subquery) ≡ x = ANY (subquery)' },
+    ],
+    examTips: ['Every non-aggregated column in SELECT must be in GROUP BY.', 'WHERE cannot use aggregates — that is what HAVING is for.', 'NULL = NULL is UNKNOWN, not TRUE.'],
+  },
+  {
+    id: 'm3', num: 3, title: 'Database Storage: Files, Pages & Tuples', short: 'Storage I', week: 'Week 3', lectures: 'Lecture 3',
+    blurb: 'Disk-oriented architecture, pages and heap files, slotted pages, tuple layout and data representation, log-structured and index-organized storage.',
+    prereqs: ['m1'],
+    skills: [
+      { id: 'st-arch', label: 'Disk-oriented architecture', lesson: 'm3-l1' },
+      { id: 'st-pages', label: 'Files, pages & heap files', lesson: 'm3-l1' },
+      { id: 'st-slotted', label: 'Slotted pages & record IDs', lesson: 'm3-l2' },
+      { id: 'st-tuple', label: 'Tuple layout & data representation', lesson: 'm3-l3' },
+      { id: 'st-lsm', label: 'Log-structured & index-organized storage', lesson: 'm3-l4' },
+    ],
+    test: { size: 10, pass: 0.8 },
+    examWeight: 0.14,
+    objectives: ['Explain why DBMSs manage their own pages and prefer sequential I/O', 'Trace inserts/deletes in a slotted page and explain record IDs', 'Compute a tuple’s size with word-alignment padding', 'Compare tuple-oriented, log-structured and index-organized storage'],
+    formulas: [
+      { label: 'Record ID', md: '(file id, page id, slot #)' },
+      { label: 'Free space (slotted)', md: 'page size − header − slot array − tuple data' },
+      { label: 'Alignment', md: 'an attribute may not straddle a word boundary → pad (or reorder)' },
+    ],
+    examTips: ['Record IDs stay valid when a tuple moves inside its page because they name a slot, not a byte offset.', 'LSM: fast writes (sequential appends), slower reads (check several levels) and compaction costs.'],
+  },
+  {
+    id: 'm4', num: 4, title: 'Storage Models (NSM, DSM, PAX) & Compression', short: 'Storage Models', week: 'Week 3', lectures: 'Lecture 4 (part 1)',
+    blurb: 'OLTP vs OLAP, row vs column vs hybrid layouts, choosing a layout for a workload, and columnar compression.',
+    prereqs: ['m3'],
+    skills: [
+      { id: 'sm-nsm', label: 'NSM (row store)', lesson: 'm4-l1' },
+      { id: 'sm-dsm', label: 'DSM (column store)', lesson: 'm4-l1' },
+      { id: 'sm-pax', label: 'PAX (hybrid)', lesson: 'm4-l2' },
+      { id: 'sm-choose', label: 'Choosing a layout for a workload', lesson: 'm4-l3' },
+      { id: 'cmp-basics', label: 'Compression goals & granularity', lesson: 'm4-l4' },
+      { id: 'cmp-columnar', label: 'Columnar encodings', lesson: 'm4-l4' },
+    ],
+    test: { size: 12, pass: 0.8, require: [{ skill: 'sm-choose', min: 3, label: 'New layout-selection scenarios' }] },
+    examWeight: 0.14,
+    objectives: ['Draw how the same rows are laid out under NSM, DSM and PAX', 'Decide which layout fits a new workload and justify it with I/O reasoning', 'Encode a column with RLE, bitmap, delta, dictionary and bit packing', 'Compute compressed sizes'],
+    formulas: [
+      { label: 'NSM scan', md: 'reads every page, even unused attributes' },
+      { label: 'DSM scan', md: 'reads only the needed columns' },
+      { label: 'Bit packing', md: 'bits per value = ⌈log₂(max+1)⌉' },
+      { label: 'RLE triplet', md: '(value, start offset, run length)' },
+    ],
+    examTips: ['OLTP → NSM, OLAP → DSM; PAX when you scan columns but still want a tuple’s values close together (Parquet/ORC).', 'Always justify a layout with what must be READ and WRITTEN for the workload.'],
+  },
+  {
+    id: 'm5', num: 5, title: 'Buffer Pool Management', short: 'Buffer Pool', week: 'Week 4', lectures: 'Lecture 4 (part 2)',
+    blurb: 'Frames, page table, pins and dirty pages; why not mmap; LRU, CLOCK, LRU-K, sequential flooding; buffer pool optimizations.',
+    prereqs: ['m3'],
+    skills: [
+      { id: 'bp-basics', label: 'Frames, page table, pins, latches', lesson: 'm5-l1' },
+      { id: 'bp-os', label: 'Why not mmap / the OS', lesson: 'm5-l1' },
+      { id: 'bp-policy', label: 'Replacement policy traces', lesson: 'm5-l2' },
+      { id: 'bp-flood', label: 'Sequential flooding & better policies', lesson: 'm5-l3' },
+      { id: 'bp-dirty', label: 'Dirty pages & write-back', lesson: 'm5-l2' },
+      { id: 'bp-opt', label: 'Buffer pool optimizations', lesson: 'm5-l4' },
+    ],
+    test: { size: 10, pass: 0.8, require: [{ skill: 'bp-policy', min: 2, label: 'Replacement traces' }] },
+    examWeight: 0.14,
+    objectives: ['Trace LRU, CLOCK, MRU and LRU-K on a page reference string', 'Decide when a dirty page must be written back', 'Explain sequential flooding and how LRU-K / localization / hints help', 'Explain why the DBMS manages memory instead of the OS'],
+    formulas: [
+      { label: 'Page table vs directory', md: 'page table: page id → frame (memory only); page directory: page id → file location (on disk)' },
+      { label: 'CLOCK', md: 'ref=1 → set 0, advance; ref=0 → evict' },
+      { label: 'LRU-K', md: 'evict max backward K-distance (t − time of K-th most recent access)' },
+    ],
+    examTips: ['A pinned page can never be evicted.', 'Evicting a clean page is free; a dirty page costs a write first.', 'Write the frame state after EVERY request in a trace.'],
+  },
+  {
+    id: 'm6', num: 6, title: 'Hash Tables', short: 'Hash Tables', week: 'Week 5', lectures: 'Lecture 5',
+    blurb: 'Hash functions, linear probing and tombstones, cuckoo hashing, and the dynamic schemes: chained, extendible and linear hashing.',
+    prereqs: ['m3'],
+    skills: [
+      { id: 'ht-basics', label: 'Hash functions & design decisions', lesson: 'm6-l1' },
+      { id: 'ht-probe', label: 'Linear probing & deletes', lesson: 'm6-l1' },
+      { id: 'ht-cuckoo', label: 'Cuckoo hashing', lesson: 'm6-l2' },
+      { id: 'ht-chained', label: 'Chained hashing', lesson: 'm6-l2' },
+      { id: 'ht-extendible', label: 'Extendible hashing', lesson: 'm6-l3' },
+      { id: 'ht-linear', label: 'Linear hashing', lesson: 'm6-l4' },
+    ],
+    test: { size: 10, pass: 0.8 },
+    examWeight: 0.12,
+    objectives: ['Trace inserts, lookups and tombstone deletes in a linear probe table', 'Trace extendible hashing splits and directory doubling', 'Trace linear hashing splits with the split pointer', 'Compare static and dynamic schemes'],
+    formulas: [
+      { label: 'Extendible', md: 'directory slot = first global-depth bits; double directory only if local = global' },
+      { label: 'Linear hashing', md: 'b = h₁(k); if b < split pointer use h₂(k) = k mod 2n' },
+      { label: 'Cost', md: 'average O(1), worst O(n)' },
+    ],
+    examTips: ['Lookups in linear probing stop at an EMPTY slot, never at a tombstone.', 'In linear hashing the bucket at the split pointer splits — not the one that overflowed.'],
+  },
+  {
+    id: 'm7', num: 7, title: 'B+Tree Indexes', short: 'B+Trees', week: 'Week 6', lectures: 'Lecture 6',
+    blurb: 'B+Tree invariants, search, insert with splits, delete with redistribution and merge, composite and clustered indexes, design choices.',
+    prereqs: ['m6'],
+    skills: [
+      { id: 'bt-props', label: 'Structure & invariants', lesson: 'm7-l1' },
+      { id: 'bt-insert', label: 'Insert & splits', lesson: 'm7-l2' },
+      { id: 'bt-delete', label: 'Delete, borrow & merge', lesson: 'm7-l3' },
+      { id: 'bt-use', label: 'Composite, duplicate & clustered indexes', lesson: 'm7-l4' },
+      { id: 'bt-design', label: 'Design choices & optimizations', lesson: 'm7-l4' },
+      { id: 'bt-cc', label: 'Index concurrency (latch crabbing)', lesson: 'm7-l5' },
+    ],
+    test: { size: 10, pass: 0.8, require: [{ skill: 'bt-insert', min: 1, label: 'Insert/split question' }, { skill: 'bt-delete', min: 1, label: 'Delete/merge question' }] },
+    examWeight: 0.12,
+    objectives: ['State and check the B+Tree invariants', 'Trace inserts (copy up vs push up) and deletes (borrow vs merge)', 'Decide when a composite index can be used', 'Estimate tree height and lookup cost'],
+    formulas: [
+      { label: 'Occupancy', md: '⌈m/2⌉−1 ≤ #keys ≤ m−1 (non-root); k keys → k+1 children' },
+      { label: 'Height', md: '≈ ⌈log_f(N)⌉ levels for N keys and fanout f' },
+      { label: 'Split', md: 'leaf: copy up; inner: push up' },
+    ],
+    examTips: ['Leaf split: the separator is COPIED up (still in the leaf). Inner split: PUSHED up (removed from the node).', 'The tree only grows taller when the root splits, and only shrinks when the root empties.'],
+  },
+  {
+    id: 'm8', num: 8, title: 'Indexes & Filters', short: 'Filters & Indexes', week: 'Week 6', lectures: 'Lecture 7',
+    blurb: 'Bloom filters, skip lists, tries and radix trees, inverted and vector indexes.',
+    prereqs: ['m7'],
+    skills: [
+      { id: 'ix-bloom', label: 'Bloom & other filters', lesson: 'm8-l1' },
+      { id: 'ix-skip', label: 'Skip lists', lesson: 'm8-l2' },
+      { id: 'ix-trie', label: 'Tries & radix trees', lesson: 'm8-l2' },
+      { id: 'ix-inverted', label: 'Inverted & vector indexes', lesson: 'm8-l3' },
+    ],
+    test: { size: 8, pass: 0.75 },
+    examWeight: 0.04,
+    objectives: ['Explain index vs filter', 'Trace Bloom filter inserts and lookups, including false positives', 'Search and insert in a skip list', 'Explain tries/radix trees and inverted indexes'],
+    formulas: [{ label: 'Bloom filter', md: 'no false negatives; false positives possible' }],
+    examTips: ['A filter says whether a key MIGHT exist, never where it is.'],
+  },
+];
+
+export const moduleById = (id: string) => MODULES.find((m) => m.id === id);
+
+export const SKILL_LABEL: Record<string, string> = Object.fromEntries(MODULES.flatMap((m) => m.skills.map((s) => [s.id, s.label])));
+export const SKILL_MODULE: Record<string, string> = Object.fromEntries(MODULES.flatMap((m) => m.skills.map((s) => [s.id, m.id])));

@@ -1,0 +1,247 @@
+import type { Lesson, Question } from '../lib/types';
+import { L } from './modules';
+
+export const lessons: Lesson[] = [
+  {
+    id: 'm6-l1', module: 'm6', title: 'Hash functions and linear probe hashing', minutes: 18,
+    summary: 'A hash table maps keys to values in O(1) on average. Choose a fast hash function, then a scheme for collisions: linear probing with tombstones for deletes.',
+    objectives: ['State the cost and design decisions of hash tables', 'List the desired properties of DBMS hash functions', 'Trace inserts, lookups and deletes in a linear probe table', 'Explain why deletes use tombstones'],
+    sources: [L(5, '4–19')],
+    keyTerms: [{ term: 'Collision', def: 'Two keys hash to the same slot.' }, { term: 'Load factor', def: 'Fraction of slots in use; too high → resize.' }, { term: 'Tombstone', def: 'Marker for a deleted slot; lookups skip over it.' }],
+    blocks: [
+      {
+        k: 'concept',
+        c: {
+          title: 'Hash tables and hash functions',
+          intuition: 'A hash function turns any key into a slot number, so you can jump straight to where the key should be instead of searching.',
+          why: 'DBMSs use hash tables everywhere internally (page table, joins, aggregation). Constants matter: O(1) on average, O(n) in the worst case (slide 6).',
+          definition: 'A hash table implements an **unordered associative array** mapping keys to values, using a hash function to compute an offset into an array: space O(n), time O(1) average / O(n) worst (slide 6). A static table assumes the number of elements is known, keys are unique and the hash is perfect — unrealistic (slide 8). Two design decisions: the **hash function** (fast vs collision rate) and the **hashing scheme** (handling collisions: big table vs extra instructions) (slide 9). DBMS hash functions should be fast with low collision rates — **not cryptographic** (e.g. SHA-2); examples CRC-64, MurmurHash, CityHash, XXHash (state of the art), FarmHash. Desired properties: determinism, speed, uniform distribution, avalanche effect, low overhead (slides 10–11).',
+          mistakes: [{ wrong: '“Use SHA-256 to get fewer collisions.”', right: 'Cryptographic hashes are slow; DBMSs use fast non-cryptographic hashes like xxHash.' }],
+          check: 'm6-c1',
+        },
+      },
+      {
+        k: 'concept',
+        c: {
+          title: 'Linear probe hashing and deletes',
+          intuition: 'If your seat is taken, walk to the next free seat. To find someone, start at their seat and walk until you find them — or reach an empty seat.',
+          why: 'It is the simplest open-addressing scheme: one big array, good cache locality. Deletes are tricky because an empty slot ends every lookup.',
+          definition: 'One giant table of fixed-length slots; collisions are resolved by **linearly searching for the next free slot**. Lookups hash to a slot and scan until the key or an **empty** slot is found; keys are stored so we know when to stop. When the **load factor** gets too high, allocate a table twice as large and rehash (slide 13). Fixed-length keys/values are stored inline (optionally with the hash); variable-length ones go to a private table referenced by record ID (slide 15). **Deletes:** (1) **movement** — rehash following keys to fill the hole; expensive, no DBMS does it; (2) **tombstone** — mark the slot as logically deleted; lookups continue past it; inserts may reuse it; periodic garbage collection (slides 16–17). **Non-unique keys:** separate value lists, or redundant keys stored together (what most systems do) (slide 18).',
+          example: [{ k: 'widget', w: 'probe' }],
+          walkthrough: {
+            title: 'Lecture 5, slides 14–17 (7 slots)',
+            steps: [
+              { md: 'Insert A (home 2), B (home 0), C (home 2 → taken → slot 3), D (home 3 → taken → slot 4).' },
+              { md: 'Delete C: if we simply emptied slot 3, a lookup for D (home 3) would stop at the empty slot and wrongly report “not found”.' },
+              { md: 'With a **tombstone** in slot 3 the lookup for D skips it and finds D in slot 4.' },
+              { md: 'Insert G (home 3): the tombstone slot can be reused → G goes into slot 3.' },
+            ],
+          },
+          mistakes: [
+            { wrong: '“A lookup stops at a tombstone.”', right: 'Lookups skip tombstones; only an empty slot proves the key is absent.' },
+            { wrong: 'Forgetting to wrap around.', right: 'After the last slot, probing continues at slot 0.' },
+          ],
+          check: 'm6-c2',
+        },
+      },
+    ],
+  },
+  {
+    id: 'm6-l2', module: 'm6', title: 'Cuckoo hashing and chained hashing', minutes: 14,
+    summary: 'Cuckoo hashing gives every key two possible slots and evicts on conflict, guaranteeing O(1) lookups. Chained hashing hangs a linked list of buckets off each slot.',
+    objectives: ['Trace cuckoo insertions with evictions', 'Explain why cuckoo lookups are O(1)', 'Describe chained hashing and bucket filters'],
+    sources: [L(5, '20–24')],
+    blocks: [
+      {
+        k: 'concept',
+        c: {
+          title: 'Cuckoo hashing',
+          intuition: 'Each key has two possible homes. If both are taken, kick out one occupant (like a cuckoo chick) and move it to *its* other home — possibly kicking someone else.',
+          why: 'A lookup only checks two slots, so lookups and deletes are always O(1); the work moves to inserts.',
+          definition: 'Use **multiple hash functions** to find multiple locations in the table. On insert, check them and pick an empty one; if none is available, **evict** the element from one of them and re-hash it to find a new location. Look-ups and deletions are always **O(1)** because only one location per hash function is checked (slide 20). Long eviction chains/cycles force a rebuild with new hash functions.',
+          example: [{ k: 'widget', w: 'cuckoo' }],
+          mistakes: [{ wrong: '“Cuckoo lookups probe until an empty slot.”', right: 'They check exactly the hash₁ and hash₂ slots — nothing else.' }],
+          check: 'm6-c3',
+        },
+      },
+      {
+        k: 'concept',
+        c: {
+          title: 'Chained hashing (a dynamic scheme)',
+          intuition: 'Each slot points to a bucket; when it fills, add another bucket to its chain. The table never “runs out” of slots.',
+          why: 'Static schemes need the number of elements in advance; dynamic schemes grow incrementally (slide 22).',
+          definition: 'Maintain a **linked list of buckets** for each slot; collisions go into the same bucket chain. Lookups hash to the bucket and scan it; inserts and deletes are generalisations of lookups (slide 23). Bucket pointers can carry **filters** that answer “does key G exist?” without scanning the chain (slide 24). Chains can grow forever — extendible hashing fixes that.',
+          mistakes: [{ wrong: '“Chained hashing must be rebuilt when full.”', right: 'It grows by adding buckets to chains; the problem is long chains, not fullness.' }],
+          check: 'm6-c4',
+        },
+      },
+    ],
+  },
+  {
+    id: 'm6-l3', module: 'm6', title: 'Extendible hashing', minutes: 16,
+    summary: 'A directory indexed by the first global-depth bits of the hash points to buckets; a full bucket splits, and the directory doubles only when needed.',
+    objectives: ['Find a key’s bucket from its hash bits', 'Decide when the directory doubles', 'Trace a split with global and local depth'],
+    sources: [L(5, '25–26')],
+    blocks: [
+      {
+        k: 'concept',
+        c: {
+          title: 'Global depth, local depth and splits',
+          intuition: 'Look at the first few bits of the hash to pick a directory slot. When a bucket overflows, split it on one more bit; only if it was already using as many bits as the directory does the directory double.',
+          why: 'Splitting only the overflowing bucket keeps data movement local, unlike rebuilding a whole static table.',
+          definition: 'Chained-hashing variant that **splits buckets incrementally** instead of letting chains grow forever; multiple directory slots can point to the same bucket; on a split the bucket’s entries are reshuffled and the number of bits examined increases; data movement is localised to the split bucket (slide 25). **Global depth** = number of hash bits used by the directory (directory size 2^global); **local depth** = bits that all keys in a bucket share. Lookup: the first *global depth* bits select the slot (as on slide 26). On overflow: if local depth = global depth → **double the directory** (global + 1), then split the bucket (both halves get local + 1) and redirect the affected slots; if local depth < global depth → split without doubling.',
+          example: [{ k: 'widget', w: 'exthash' }],
+          walkthrough: {
+            title: 'Slide 26: global depth 2, buckets of 3 entries',
+            steps: [
+              { md: 'Get A (01110…): first 2 bits **01** → bucket with 00010…, 01110… (local depth 1). Found.' },
+              { md: 'Put B (10111…): slot **10** → bucket {10101, 10011} has room → {10101, 10011, 10111}.' },
+              { md: 'Put C (10100…): slot 10 → bucket full and its local depth 2 = global depth 2 → **double** the directory to 8 slots (global 3).' },
+              { md: 'Split on the 3rd bit: 100 → {10011}, 101 → {10101, 10111}, both local depth 3. C (101…) joins {10101, 10100, 10111}.' },
+            ],
+          },
+          mistakes: [{ wrong: '“Every split doubles the directory.”', right: 'Only when the overflowing bucket’s local depth equals the global depth.' }],
+          check: 'm6-c5',
+        },
+      },
+    ],
+  },
+  {
+    id: 'm6-l4', module: 'm6', title: 'Linear hashing', minutes: 16,
+    summary: 'No directory doubling: a split pointer walks through the buckets, splitting one bucket per overflow, while two hash functions locate keys.',
+    objectives: ['Locate a key with hash₁ and hash₂ and the split pointer', 'Trace inserts that cause overflow and splits', 'Explain resizing and deletes'],
+    sources: [L(5, '27–31')],
+    blocks: [
+      {
+        k: 'concept',
+        c: {
+          title: 'Split pointer and two hash functions',
+          intuition: 'Grow the table one bucket at a time, in order. Whenever any bucket overflows, split the bucket the pointer is at — not necessarily the one that overflowed — and advance the pointer.',
+          why: 'Growth is smooth and predictable, with no big directory doubling; overflow chains are temporary until the pointer reaches them.',
+          definition: 'The table keeps a **pointer to the next bucket to split**; when **any** bucket overflows, split the bucket **at the pointer**. Multiple hashes find the right bucket (slide 27): with n buckets in the current round, b = key mod n; **if b < split pointer**, that bucket was already split, so use key mod 2n. When the pointer reaches the end of the round, drop the first hash function and reset the pointer (slide 29). If the highest bucket below the pointer becomes empty it can be removed and the pointer moves back (slides 29–30). Overflow criteria can be space utilisation or average overflow-chain length (slide 27).',
+          example: [{ k: 'widget', w: 'linhash' }],
+          walkthrough: {
+            title: 'Slide 28: buckets 0{8,20} 1{5,9,13} 2{6} 3{7,11}, 3 keys per page, pointer 0',
+            steps: [
+              { md: 'Get 6: 6 mod 4 = 2 ≥ pointer 0 → bucket 2.' },
+              { md: 'Put 17: 17 mod 4 = 1 → bucket 1 is full → 17 goes to an overflow page → **split bucket 0** (the pointer), not bucket 1.' },
+              { md: 'Rehash bucket 0 with key mod 8: 8 stays (0), 20 moves to new bucket 4. Pointer → 1.' },
+              { md: 'Get 20: 20 mod 4 = 0 < pointer 1 → use 20 mod 8 = 4 → bucket 4. Get 9: 9 mod 4 = 1 ≥ pointer → bucket 1.' },
+            ],
+          },
+          mistakes: [{ wrong: '“The overflowing bucket is split.”', right: 'The bucket at the split pointer is split; the overflowing bucket waits for its turn (it keeps an overflow page).' }],
+          check: 'm6-c6',
+        },
+      },
+      { k: 'callout', tone: 'exam', md: 'Conclusion (slide 31): hash tables give O(1) lookups and are used throughout DBMS internals, but they are usually **not** what you want for a table index — they cannot answer range or prefix queries. PostgreSQL’s `CREATE INDEX` defaults to a B+Tree.' },
+    ],
+  },
+];
+
+export const questions: Question[] = [
+  {
+    id: 'm6-c1', module: 'm6', skills: ['ht-basics'], level: 1, type: 'mcq', use: ['check', 'practice', 'test', 'exam'],
+    prompt: 'Why do DBMSs **not** use cryptographic hash functions such as SHA-2 for their hash tables?',
+    options: ['They are not deterministic', 'They are slow; DBMSs want fast hashes with low collision rates (e.g. xxHash)', 'They produce too few bits', 'They cannot hash strings'],
+    answer: 1,
+    explain: 'DBMS hash tables need speed and a low collision rate, not cryptographic security; state-of-the-art choices are fast hashes like xxHash (slides 10–11).',
+    source: 'Lecture 5, slides 10–11',
+  },
+  {
+    id: 'm6-c2', module: 'm6', skills: ['ht-probe'], level: 2, type: 'trace', use: ['check', 'practice', 'test'],
+    trace: { sim: 'probe', size: 7, ops: '+A:2 +B:0 +C:2 +D:3 -C:2 ?D:3 +G:3' },
+    prompt: 'Linear probing, **7 slots**, tombstone deletes. The number after each key is its home slot (hash % 7). Predict each operation.',
+    hints: ['Inserts take the first empty slot or tombstone at or after the home slot.', 'Lookups skip tombstones.'],
+    explain: 'This is the lecture’s example (slides 14–17): C collides with A and lands in slot 3; deleting C leaves a tombstone so D (home 3) is still found in slot 4; G reuses the tombstone slot 3.',
+    source: 'Lecture 5, slides 14–17',
+  },
+  {
+    id: 'm6-c3', module: 'm6', skills: ['ht-cuckoo'], level: 2, type: 'mcq', use: ['check', 'practice', 'test', 'exam'],
+    prompt: 'Why are lookups in cuckoo hashing **always O(1)**?',
+    options: ['The table is always sorted', 'A key can only be in one of its hash-function locations, so a lookup checks at most those slots', 'Collisions are impossible', 'Keys are stored in a B+Tree'],
+    answer: 1,
+    explain: 'Each key lives in one of its (e.g. two) hash locations; a lookup checks only those, whatever the table looks like (slide 20). The cost moves to inserts (evictions).',
+    source: 'Lecture 5, slide 20',
+  },
+  {
+    id: 'm6-c4', module: 'm6', skills: ['ht-chained'], level: 1, type: 'mcq', use: ['check', 'practice', 'test', 'exam'],
+    prompt: 'In **chained hashing**, what happens when two keys hash to the same slot?',
+    options: ['The second key is probed into the next slot', 'Both go into the same bucket chain for that slot', 'The table doubles', 'One key is evicted to its alternate location'],
+    answer: 1,
+    why: ['That is linear probing.', undefined, 'That is static resizing.', 'That is cuckoo hashing.'],
+    explain: 'Chained hashing resolves collisions by placing all elements with the same hash into the same bucket (a linked list of buckets per slot) (slide 23).',
+    source: 'Lecture 5, slides 22–24',
+  },
+  {
+    id: 'm6-c5', module: 'm6', skills: ['ht-extendible'], level: 3, type: 'trace', use: ['check', 'practice', 'test'],
+    trace: { sim: 'exthash', cap: 3, global: 2, start: '1:A=00010,X=01110 | 2:Y=10101,Z=10011 | 2:W=11010', ops: '+B=10111 +C=10100' },
+    prompt: 'Start from the Lecture 5 slide 26 state (global depth 2, bucket capacity 3, directory uses the **leading** bits). Insert B (10111…) and then C (10100…).',
+    hints: ['Use the first global-depth bits to choose the slot.', 'Double the directory only if local depth = global depth.'],
+    explain: 'B fits into bucket “10”. C overflows it; its local depth equals the global depth, so the directory doubles to global depth 3 and the bucket splits into 100 → {10011} and 101 → {10101, 10111, 10100}.',
+    source: 'Lecture 5, slide 26',
+  },
+  {
+    id: 'm6-c6', module: 'm6', skills: ['ht-linear'], level: 3, type: 'trace', use: ['check', 'practice', 'test'],
+    trace: { sim: 'linhash', n0: 4, cap: 3, start: [[8, 20], [5, 9, 13], [6], [7, 11]], ops: '?6 +17 ?20 ?9 +21' },
+    prompt: 'Linear hashing from Lecture 5 slide 28: buckets 0{8,20} 1{5,9,13} 2{6} 3{7,11}, **3 keys per page**, hash₁ = key mod 4, split pointer 0. Any overflow splits the bucket at the pointer.',
+    hints: ['If key mod n is below the split pointer, use key mod 2n.'],
+    explain: 'Put 17 overflows bucket 1 and splits bucket 0 (20 → bucket 4, pointer → 1). Get 20 then uses 20 mod 8 = 4. Put 21 overflows bucket 1 again; now the pointer is at 1, so bucket 1 itself splits with key mod 8.',
+    source: 'Lecture 5, slides 27–30',
+  },
+  {
+    id: 'm6-q1', module: 'm6', skills: ['ht-probe'], level: 2, type: 'mcq',
+    prompt: 'Linear probing: C was deleted from slot 3 by simply **emptying** the slot (no tombstone). D, whose home is slot 3, sits in slot 4. What does `Get D` return?',
+    options: ['Found in slot 4', 'Not found — the lookup stops at the empty slot 3', 'An error', 'Found after rehashing the table'],
+    answer: 1,
+    explain: 'Lookups stop at the first empty slot. Without a tombstone the empty slot 3 makes D look absent — the bug shown on slide 16 that tombstones (or expensive movement) fix.',
+    source: 'Lecture 5, slides 16–17',
+  },
+  {
+    id: 'm6-q2', module: 'm6', skills: ['ht-probe'], level: 1, type: 'mcq',
+    prompt: 'For **non-unique keys**, what do most hash table implementations do?',
+    options: ['Reject duplicates', 'Store a separate linked list of values per key', 'Store the duplicate key entries together in the table (redundant keys)', 'Hash the value instead of the key'],
+    answer: 2,
+    explain: 'Choice #2 — redundant keys stored together in the hash table — is what most systems do; choice #1 is separate value lists (slide 18).',
+    source: 'Lecture 5, slide 18',
+  },
+  {
+    id: 'm6-q3', module: 'm6', skills: ['ht-extendible'], level: 2, type: 'mcq',
+    prompt: 'Extendible hashing, global depth 3. A bucket with **local depth 2** overflows. What happens?',
+    options: ['The directory doubles to global depth 4', 'The bucket splits into two buckets of local depth 3 and only the directory slots that pointed to it are updated', 'Keys go to an overflow chain forever', 'The whole table is rebuilt'],
+    answer: 1,
+    explain: 'Local depth (2) < global depth (3): two directory slots already point to this bucket, so it can split without doubling; the new buckets get local depth 3.',
+    source: 'Lecture 5, slides 25–26',
+  },
+  {
+    id: 'm6-q4', module: 'm6', skills: ['ht-linear'], level: 2, type: 'num',
+    prompt: 'Linear hashing with **n = 4** buckets in the current round and the **split pointer at 2**. In which bucket is key **13** stored?',
+    answer: 5,
+    hints: ['13 mod 4 = 1. Is 1 below the split pointer?'],
+    explain: '13 mod 4 = 1 < split pointer 2 → bucket 1 has already been split, so use 13 mod 8 = **5**.',
+    source: 'Lecture 5, slides 27–28',
+  },
+  {
+    id: 'm6-q5', module: 'm6', skills: ['ht-basics'], level: 1, type: 'mcq',
+    prompt: 'What are the average and worst-case lookup times of a hash table?',
+    options: ['O(log n) and O(n)', 'O(1) and O(n)', 'O(1) and O(1)', 'O(n) and O(n²)'],
+    answer: 1,
+    explain: 'Average O(1), worst O(n) (all keys collide) — and “databases care about constants!” (slide 6).',
+    source: 'Lecture 5, slide 6',
+  },
+  {
+    id: 'm6-q6', module: 'm6', skills: ['ht-basics', 'ht-linear'], level: 2, type: 'mcq',
+    prompt: 'Why are hash tables usually **not** used as the main table index?',
+    options: ['They are too slow for equality lookups', 'They cannot efficiently answer range or prefix queries because keys are unordered', 'They cannot store variable-length keys', 'They use too little memory'],
+    answer: 1,
+    explain: 'Hash tables are unordered: great for equality lookups, useless for ranges (BETWEEN, ORDER BY, prefix). That is why B+Trees are the default table index (slides 2, 31).',
+    source: 'Lecture 5, slides 2, 31',
+  },
+  {
+    id: 'm6-q7', module: 'm6', skills: ['ht-probe'], level: 2, type: 'num',
+    prompt: 'A linear-probe table has 8 slots. Slots 5, 6, 7 and 0 are occupied, slot 1 is empty. Key K has home slot 5 and is **not** in the table. How many slots does `Get K` examine?',
+    answer: 5,
+    hints: ['Count slots 5, 6, 7, 0 and stop at the first empty one.'],
+    explain: 'The lookup examines 5, 6, 7, 0 (all occupied by other keys) and then slot 1, which is empty → stop: **5** slots. Long clusters make lookups of absent keys expensive.',
+    source: 'Lecture 5, slide 13',
+  },
+];

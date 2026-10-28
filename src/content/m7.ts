@@ -1,0 +1,281 @@
+import type { Lesson, Question } from '../lib/types';
+import { L, SYL } from './modules';
+
+export const lessons: Lesson[] = [
+  {
+    id: 'm7-l1', module: 'm7', title: 'B+Tree structure and invariants', minutes: 14,
+    summary: 'A B+Tree is a balanced, ordered m-way tree: inner nodes route searches, leaves hold the keys and values and are linked for scans.',
+    objectives: ['State the B+Tree invariants (balance, occupancy, k keys → k+1 children)', 'Explain inner vs leaf nodes and what leaf values can be', 'Contrast index and filter, and B-Tree and B+Tree', 'Estimate tree height and lookup cost'],
+    sources: [L(6, '3–11, 29')],
+    keyTerms: [{ term: 'Fanout m', def: 'Max children per inner node (m−1 keys).' }, { term: 'Separator', def: 'Inner-node key that routes searches (≥ key goes right).' }, { term: 'Sibling pointers', def: 'Leaves are linked for sequential scans.' }],
+    blocks: [
+      {
+        k: 'concept',
+        c: {
+          title: 'Structure and invariants',
+          intuition: 'A sorted dictionary on disk: every page holds many keys, so a few page reads walk from the root to the right leaf among millions of keys; the leaves are chained so you can keep reading in order.',
+          why: 'B+Trees support point lookups, range scans and ordered output with O(log n) page reads — the default index in almost every DBMS (“almost always a good choice”, slide 41).',
+          definition: 'An **index** organises/sorts a subset of attributes to locate tuples; a **filter** only answers set membership (slide 3). A **B+Tree** is a self-balancing, ordered **m-way** tree with O(log_m n) search, sequential access, insert and delete. **Perfectly balanced** (every leaf at the same depth); every node except the root is **at least half full** (m/2 − 1 ≤ #keys ≤ m − 1); an inner node with **k keys has k + 1 children** (slide 6). Nodes are arrays of sorted key/value pairs; inner values are child pointers, **leaf values** are **record IDs** (most common) or the **tuple data** itself (index-organized; secondary indexes then store the primary key) (slides 8–10). Leaves have prev/next sibling pointers. A **B-Tree** stores values in all nodes; a **B+Tree** only in leaves (slide 11).',
+          example: [{ k: 'widget', w: 'bptree', props: { preset: 1 } }],
+          walkthrough: {
+            title: 'Height and cost estimate (explanatory, not on the slides)',
+            steps: [
+              { md: 'Suppose each node holds about **100** entries (fanout ≈ 100) and the index has **1,000,000** keys.' },
+              { md: 'Leaves: 1,000,000 / 100 = 10,000 leaf pages. Next level: 10,000 / 100 = 100 nodes. Next: 100 / 100 = 1 root → **3 levels**.' },
+              { md: 'A point lookup reads 3 index pages (root → inner → leaf), plus 1 heap page to fetch the tuple via its record ID ≈ **4 page reads** with a cold buffer pool. In general height ≈ ⌈log_fanout(N)⌉.' },
+            ],
+          },
+          mistakes: [
+            { wrong: '“Inner nodes tell you whether a key exists.”', right: 'Separators only route; you must reach the leaf to know (Lecture 7, slide 14).' },
+            { wrong: '“A B+Tree with k keys in a node has k children.”', right: 'k + 1 children.' },
+          ],
+          check: 'm7-c1',
+        },
+      },
+    ],
+  },
+  {
+    id: 'm7-l2', module: 'm7', title: 'Insert: splits, copy up and push up', minutes: 18,
+    summary: 'Insert into the right leaf; if it overflows, split it and copy the middle key up; if the parent overflows, split it and push its middle key up — the tree grows at the root.',
+    objectives: ['Trace B+Tree inserts with leaf and inner splits', 'Distinguish copy up (leaf) from push up (inner)', 'Explain when the tree gets taller'],
+    sources: [L(6, '12–15')],
+    blocks: [
+      {
+        k: 'concept',
+        c: {
+          title: 'Splitting on insert',
+          intuition: 'When a leaf is too full, cut it in half and tell the parent where the new half starts. If the parent is now too full, cut it too — passing the problem upward, possibly creating a new root.',
+          why: 'Splits keep every node at least half full and every leaf at the same depth — the invariants that guarantee O(log n).',
+          definition: 'Find the correct leaf L and insert in sorted order. If L has space, done. Otherwise split L into L and a new node L2: redistribute entries evenly and **copy up** the middle key (it stays in the leaf); insert an entry pointing to L2 into L’s parent. To split an **inner node**, redistribute evenly but **push up** the middle key (it leaves the node) (slide 12). Convention used here (matches slides 13–15): when splitting n entries the left node keeps ⌈n/2⌉; the separator copied up is the first key of the new right leaf.',
+          example: [{ k: 'widget', w: 'bptree', props: { preset: 1 } }],
+          walkthrough: {
+            title: 'Slides 14–15 (max 4 keys per node): insert 17, then 16',
+            steps: [
+              { md: 'Insert 17 → leaf [13 14 15] has room → [13 14 15 17].' },
+              { md: 'Insert 16 → leaf would be [13 14 15 16 17] (5 > 4) → split into [13 14 15] | [16 17]; **copy up 16**.' },
+              { md: 'Root [5 9 13 19] would become [5 9 13 16 19] (5 > 4) → split into [5 9] | [16 19] and **push up 13** (13 is removed from both halves).' },
+              { md: 'New root [13]. The tree grew one level taller — growth only ever happens at the root.' },
+            ],
+          },
+          mistakes: [
+            { wrong: 'Pushing up a leaf separator (removing it from the leaf).', right: 'Leaf splits copy up: the key must stay in the leaf because leaves hold all the data.' },
+            { wrong: 'Keeping the pushed-up key in an inner child.', right: 'Inner splits push up: the middle key moves to the parent only.' },
+          ],
+          check: 'm7-c2',
+        },
+      },
+    ],
+  },
+  {
+    id: 'm7-l3', module: 'm7', title: 'Delete: borrow and merge', minutes: 18,
+    summary: 'Remove from the leaf; if it becomes under-full, borrow from a rich sibling, otherwise merge with a sibling and delete the separator from the parent — the tree can shrink at the root.',
+    objectives: ['Decide between nothing / borrow / merge', 'Update parent separators after a borrow', 'Trace a merge that cascades and shrinks the tree'],
+    sources: [L(6, '16–19')],
+    blocks: [
+      {
+        k: 'concept',
+        c: {
+          title: 'Redistribution and merging',
+          intuition: 'A leaf that drops below half full first asks a neighbour (with the same parent) for a spare key. If no neighbour can spare one, the two neighbours move in together and the parent loses a separator.',
+          why: 'Deletes must also preserve the half-full and balance invariants.',
+          definition: 'Find the leaf L and remove the entry. If L is still at least half full, done. If L has only m/2 − 1 entries: **try redistribution** — borrow from an adjacent sibling with the same parent; if that fails, **merge** L with a sibling. If a merge occurred, delete the entry pointing to L or its sibling from the parent (which may cascade) (slide 16). An inner node that becomes under-full **pulls down** the parent separator when it merges; if the root loses its last key the tree **shrinks in height** (slide 19). Convention used here (matches slides 17–19): non-root leaves need ≥ ⌈max/2⌉ keys, inner nodes ≥ ⌈(max+1)/2⌉ − 1; the right sibling is tried first (“could borrow from either sibling”, slide 17).',
+          example: [{ k: 'widget', w: 'bptree', props: { preset: 2 } }],
+          walkthrough: {
+            title: 'Slides 18–19 (max 4 keys): delete 15, then 19',
+            steps: [
+              { md: 'Delete 15 → leaf [13] (1 < 2). Right sibling [17 19 20] is rich → borrow 17 → [13 17] | [19 20]; parent separator 17 → **19**: [19 21].' },
+              { md: 'Delete 19 → leaf [20] under-full; siblings [13 17] and [21 23] have only 2 → **merge** with the right sibling → [20 21 23]; parent drops separator 21 → [19].' },
+              { md: 'Inner node [19] is under-full and its sibling [5 9] cannot lend → **pull down** 13 and merge → [5 9 13 19].' },
+              { md: 'The root is now empty → the merged node becomes the root. The tree shrank one level.' },
+            ],
+          },
+          mistakes: [
+            { wrong: 'Forgetting to update the parent separator after borrowing.', right: 'After borrowing from the right sibling, the separator becomes that sibling’s new first key.' },
+            { wrong: '“Deleting a key that is also a separator requires changing the separator.”', right: 'Not necessarily — a separator only routes; it can remain as long as the ordering stays valid.' },
+          ],
+          check: 'm7-c3',
+        },
+      },
+    ],
+  },
+  {
+    id: 'm7-l4', module: 'm7', title: 'Using B+Trees: composite keys, duplicates, clustering, design choices', minutes: 18,
+    summary: 'When a composite index can be used, how duplicates are stored, why clustered indexes and page sorting matter, and the main design choices and optimizations.',
+    objectives: ['Decide whether a composite index on ⟨a,b,c⟩ helps a predicate', 'Compare append-record-ID and overflow-leaf approaches to duplicates', 'Explain clustered indexes and index-scan page sorting', 'Name node size, merge threshold, intra-node search and key optimizations'],
+    sources: [L(6, '20–40')],
+    blocks: [
+      {
+        k: 'concept',
+        c: {
+          title: 'Composite keys, duplicates and clustering',
+          intuition: 'A phone book sorted by (last name, first name) helps you find “Kim, Bo” or all “Kim”s — but not everyone named “Bo”.',
+          why: 'Exam questions ask whether an index can answer a query and how many pages a scan reads.',
+          definition: '**Composite index** ⟨a, b, c⟩: usable when the query gives a **prefix** of the key — (a=1 ∧ b=2 ∧ c=3) or (a=1 ∧ b=2); rarely for (b=2) or (c=3) alone (slide 20). **Duplicate keys:** append the record ID to make every key unique (partial keys still work), or overflow leaf nodes (more complex) (slides 22–24). **Clustered index:** the table is stored in the index’s sort order; scan from the left-most leaf through all leaves — better than sorting per query. Some DBMSs always cluster (hidden key if none) (slides 25–26). **Index scan page sorting:** for a non-clustered index, collect the record IDs first, **sort them by page ID**, then fetch each page once (slide 27).',
+          mistakes: [{ wrong: '“An index on ⟨a,b,c⟩ helps WHERE c = 3.”', right: 'c alone is not a prefix; the DBMS would have to scan all leaves (or use a skip scan).' }],
+          check: 'm7-c4',
+        },
+      },
+      {
+        k: 'concept',
+        c: {
+          title: 'Design choices and optimizations',
+          intuition: 'Bigger nodes for slower devices; don’t merge too eagerly; search inside a node smartly; and squeeze keys so more fit per page.',
+          why: 'More keys per node = higher fanout = shorter tree = fewer I/Os.',
+          definition: '**Node size:** the slower the storage, the larger the optimal node — HDD ~1 MB, SSD ~10 KB, in-memory ~512 B (slide 29). **Merge threshold:** some DBMSs delay merges (average occupancy ≈ 69%) and rebuild periodically (slide 30). **Variable-length keys:** pointers, variable-length nodes, padding, key map/indirection (slide 31). **Intra-node search:** linear (SIMD), binary, interpolation (slide 32). **Optimizations:** prefix compression (rob|bed, bing, ot), deduplication (posting lists), suffix truncation (inner keys keep only the prefix needed to route), pointer swizzling (raw pointers to pinned pages instead of page IDs), bulk insert (sort keys, build bottom-up), write-optimized Bε-trees that buffer updates in inner nodes (slides 33–40).',
+          mistakes: [{ wrong: '“Suffix truncation shortens leaf keys.”', right: 'It applies to inner-node keys, which only direct traffic.' }],
+          check: 'm7-c5',
+        },
+      },
+    ],
+  },
+  {
+    id: 'm7-l5', module: 'm7', title: 'Index concurrency: latch crabbing', minutes: 12,
+    summary: 'How many threads can use one B+Tree safely: latch coupling (crabbing), safe nodes, the optimistic variant, and avoiding deadlocks on leaf scans.',
+    objectives: ['Explain latch crabbing and when a parent latch can be released', 'Define a safe node for insert and delete', 'Explain why leaf-scan latches use no-wait mode'],
+    sources: [SYL('Week 6: “latch coupling, safe nodes and deadlock avoidance”'), L(4, '53')],
+    provenance: 'supplementary',
+    provenanceNote: '**Supplementary:** the syllabus lists latch coupling, safe nodes and deadlock avoidance for Week 6, but none of the provided slides covers them. This lesson summarises the standard technique from the CMU 15-445 course that this course adapts (Lecture 1, slide 10). Locks vs latches is from Lecture 4, slide 53.',
+    blocks: [
+      {
+        k: 'concept',
+        c: {
+          title: 'Latch crabbing (coupling)',
+          intuition: 'Climb down the tree like a crab: grab the child before letting go of the parent, and let go of all ancestors as soon as you know the child cannot split or merge.',
+          why: 'Two threads splitting the same node at once would corrupt the tree. Latches protect nodes, but holding them all the way down would serialise everything.',
+          definition: 'Latches (not locks) protect the tree’s nodes for the duration of an operation (Lecture 4, slide 53). **Crabbing:** latch the parent, latch the child, and release the parent if the child is **safe**. **Search:** read latches; release the parent as soon as the child is latched. **Insert/delete:** write latches; a node is **safe** if the operation cannot split or merge it — not full for an insert, more than half full for a delete; once a safe node is latched, all ancestors’ latches can be released. **Optimistic variant:** take read latches down to the leaf and a write latch only on the leaf; if the leaf is not safe, restart pessimistically. **Leaf scans** move sideways along sibling pointers, possibly opposite to another thread → latches are acquired in **no-wait** mode: if a latch is unavailable, give up (release and restart) instead of waiting — avoiding deadlock.',
+          mistakes: [
+            { wrong: '“A thread may release the parent latch before latching the child.”', right: 'Never: another thread could change the child in between. Latch the child first.' },
+            { wrong: '“Latches are released at transaction commit.”', right: 'That is locks. Latches are held only for the operation.' },
+          ],
+          check: 'm7-c6',
+        },
+      },
+    ],
+  },
+];
+
+export const questions: Question[] = [
+  {
+    id: 'm7-c1', module: 'm7', skills: ['bt-props'], level: 1, type: 'multi', use: ['check', 'practice', 'test', 'exam'],
+    prompt: 'Which are **B+Tree invariants** (Lecture 6, slide 6)?',
+    options: ['Every leaf is at the same depth', 'Every node except the root is at least half full', 'An inner node with k keys has k + 1 children', 'Every inner node stores record IDs for its keys', 'The root must always be full'],
+    answer: [0, 1, 2],
+    why: [undefined, undefined, undefined, 'In a B+Tree only leaves store values; inner nodes guide the search (slide 11).', 'The root may have as few as one key.'],
+    explain: 'Perfect balance, at-least-half-full non-root nodes, and k keys → k+1 children. Values live only in leaves (that is the difference from the original B-Tree).',
+    source: 'Lecture 6, slides 6, 11',
+  },
+  {
+    id: 'm7-c2', module: 'm7', skills: ['bt-insert'], level: 2, type: 'trace', use: ['check', 'practice', 'test'],
+    trace: { sim: 'bptree', maxKeys: 4, start: '[5 9 13 19] ([1 3] [5 7] [9 11] [13 14 15] [20 21 23])', ops: '+17 +16' },
+    prompt: 'Start from the Lecture 6 slide 14 tree (max **4 keys** per node). Insert 17, then 16.',
+    hints: ['Does the leaf have room for 17?', 'A leaf split copies up; an inner split pushes up.'],
+    explain: '17 fits. 16 overflows the leaf → [13 14 15] | [16 17], copy up 16 → the root overflows → push up 13 → new root [13] with children [5 9] and [16 19] (slide 15).',
+    source: 'Lecture 6, slides 14–15',
+  },
+  {
+    id: 'm7-c3', module: 'm7', skills: ['bt-delete'], level: 3, type: 'trace', use: ['check', 'practice', 'test'],
+    trace: { sim: 'bptree', maxKeys: 4, start: '[13] ([5 9] ([1 3] [5 7] [9 11]) [17 21] ([13 15] [17 19 20] [21 23]))', ops: '-15 -19' },
+    prompt: 'Start from the Lecture 6 slide 18 tree (max **4 keys**; non-root nodes need ≥ 2 keys). Delete 15, then 19.',
+    hints: ['Can the under-full leaf borrow from a sibling with more than 2 keys?', 'A merge removes a separator from the parent — check whether the parent becomes under-full.'],
+    explain: 'Delete 15: borrow 17 from [17 19 20], parent becomes [19 21]. Delete 19: no rich sibling → merge [20] with [21 23]; parent [19] under-full → pull down 13 and merge with [5 9] → root [5 9 13 19]; the tree shrinks (slides 18–19).',
+    source: 'Lecture 6, slides 16–19',
+  },
+  {
+    id: 'm7-c4', module: 'm7', skills: ['bt-use'], level: 2, type: 'multi', use: ['check', 'practice', 'test', 'exam'],
+    prompt: 'A B+Tree has a **composite key ⟨a, b, c⟩**. For which predicates can the DBMS use it to find the matching entries directly (prefix search)?',
+    options: ['a = 1 AND b = 2 AND c = 3', 'a = 1 AND b = 2', 'b = 2', 'c = 3', 'a = 1'],
+    answer: [0, 1, 4],
+    why: [undefined, undefined, 'b alone is not a prefix of ⟨a, b, c⟩.', 'c alone is not a prefix.', undefined],
+    explain: 'The tree is sorted by a, then b, then c. Any **prefix** (a), (a, b), (a, b, c) identifies a contiguous range of leaves; (b) or (c) alone is scattered across the whole tree (slide 20).',
+    source: 'Lecture 6, slides 20–21',
+  },
+  {
+    id: 'm7-c5', module: 'm7', skills: ['bt-design'], level: 2, type: 'mcq', use: ['check', 'practice', 'test', 'exam'],
+    prompt: 'Which statement about **B+Tree node size** matches Lecture 6?',
+    options: ['Node size should be the same on every device', 'The slower the storage device, the larger the optimal node (HDD ~1 MB, SSD ~10 KB, memory ~512 B)', 'Smaller nodes are always better because they split less', 'Nodes must equal the OS page size'],
+    answer: 1,
+    explain: 'Slow devices favour large nodes (amortise the expensive access over more keys); in memory, small cache-friendly nodes win. The optimum also depends on the workload (scans vs traversals) (slide 29).',
+    source: 'Lecture 6, slide 29',
+  },
+  {
+    id: 'm7-c6', module: 'm7', skills: ['bt-cc'], level: 2, type: 'mcq', use: ['check', 'practice', 'test', 'exam'],
+    prompt: 'During an **insert** with latch crabbing, a thread has write-latched a child node that is **not full**. What can it do?',
+    options: ['Nothing — it must keep every latch until the operation ends', 'Release the latches on all ancestors, because this child cannot split', 'Release the child’s latch', 'Upgrade all latches to locks'],
+    answer: 1,
+    explain: 'A node that is not full is **safe** for an insert: even if a split happens below it, it can absorb the new separator without splitting. The ancestors will not change, so their latches can be released. (Supplementary — syllabus Week 6.)',
+    source: 'Supplementary (syllabus Week 6: latch coupling, safe nodes)',
+  },
+  {
+    id: 'm7-q1', module: 'm7', skills: ['bt-insert'], level: 2, type: 'mcq',
+    prompt: 'Max **3 keys** per node. Leaf [5 9 10] is under root [4 12]; you insert **6** (slide 13). What happens?',
+    options: ['[5 6 9 10] fits in the leaf', 'The leaf splits into [5 6] | [9 10] and 9 is copied up → root [4 9 12]', 'The leaf splits into [5 6 9] | [10] and 10 is pushed up', 'The root splits and the tree grows'],
+    answer: 1,
+    why: ['4 keys > max 3.', undefined, 'The left node keeps ⌈4/2⌉ = 2 keys and leaf splits copy (not push) the separator.', 'The root [4 12] has room for one more separator.'],
+    explain: 'The leaf would hold 4 keys → split evenly into [5 6] and [9 10]; copy up 9 into the parent → [4 9 12] (slides 13).',
+    source: 'Lecture 6, slide 13',
+  },
+  {
+    id: 'm7-q2', module: 'm7', skills: ['bt-insert'], level: 1, type: 'mcq',
+    prompt: 'What is the difference between **copy up** and **push up**?',
+    options: ['None — they are synonyms', 'Leaf split: the separator is copied up and stays in the leaf; inner split: the middle key is pushed up and removed from the node', 'Copy up is for deletes, push up for inserts', 'Push up happens only at the root'],
+    answer: 1,
+    explain: 'Leaves must keep every key (they hold the data), so the separator is copied. Inner nodes only route, so the middle key moves up (slide 12).',
+    source: 'Lecture 6, slide 12',
+  },
+  {
+    id: 'm7-q3', module: 'm7', skills: ['bt-delete'], level: 2, type: 'mcq',
+    prompt: 'A leaf becomes under-full after a delete. Its only sibling with the same parent has exactly the minimum number of keys. What happens?',
+    options: ['Borrow one key from the sibling anyway', 'Merge the leaf with that sibling and delete the separator between them from the parent', 'Leave it under-full', 'Split the sibling'],
+    answer: 1,
+    explain: 'Redistribution needs a “rich” sibling (more than the minimum). Otherwise the two leaves merge and the parent loses one separator — which may make the parent under-full in turn (slides 16, 19).',
+    source: 'Lecture 6, slides 16–19',
+  },
+  {
+    id: 'm7-q4', module: 'm7', skills: ['bt-use'], level: 2, type: 'mcq',
+    prompt: 'A non-clustered index returns record IDs on pages 102, 103, 104, 104, 102, 103, 102, 101. What does **index scan page sorting** do?',
+    options: ['Fetches the pages in that order (8 reads)', 'Sorts the record IDs by page ID first, then reads each page once (4 reads: 101, 102, 103, 104)', 'Builds a new clustered index', 'Skips duplicates in the index'],
+    answer: 1,
+    explain: 'Retrieving tuples in index order causes redundant reads; collecting the needed tuples, sorting them by page ID and fetching each page once avoids that (slide 27).',
+    source: 'Lecture 6, slide 27',
+  },
+  {
+    id: 'm7-q5', module: 'm7', skills: ['bt-props'], level: 2, type: 'num',
+    prompt: 'Explanatory estimate: each B+Tree node holds about **100** entries and the index has **1,000,000** keys. How many **levels** does the tree have (root and leaves included)?',
+    answer: 3,
+    hints: ['Leaves ≈ 1,000,000 / 100. Keep dividing by 100 until one node is left.'],
+    explain: '10,000 leaves → 100 inner nodes → 1 root: **3 levels** (≈ ⌈log₁₀₀ 1,000,000⌉ = 3). A cold lookup then reads 3 index pages (+1 heap page for the tuple).',
+    source: 'Explanatory calculation (Lecture 6, slides 6, 29)',
+  },
+  {
+    id: 'm7-q6', module: 'm7', skills: ['bt-design'], level: 1, type: 'mcq',
+    prompt: 'Keys robbed, robbing, robot are stored as prefix “rob” + suffixes bed, bing, ot. Which optimization is this?',
+    options: ['Suffix truncation', 'Prefix compression', 'Deduplication', 'Pointer swizzling'],
+    answer: 1,
+    explain: 'Prefix compression extracts the common prefix of sorted keys in a leaf and stores only each key’s unique suffix (slide 34). Suffix truncation (slide 36) shortens inner-node keys instead.',
+    source: 'Lecture 6, slides 34–36',
+  },
+  {
+    id: 'm7-q7', module: 'm7', skills: ['bt-design'], level: 2, type: 'mcq',
+    prompt: 'What is **pointer swizzling**?',
+    options: ['Swapping two child pointers to rebalance', 'Storing a raw memory pointer instead of a page ID for a child that is pinned in the buffer pool, avoiding the page-table lookup', 'Encrypting pointers', 'Linking leaves in both directions'],
+    answer: 1,
+    explain: 'Nodes normally reference children by page ID, so each traversal step asks the page table where the page is. If a page is pinned, a raw pointer can be stored instead (slide 37).',
+    source: 'Lecture 6, slide 37',
+  },
+  {
+    id: 'm7-q8', module: 'm7', skills: ['bt-design', 'bt-insert'], level: 2, type: 'mcq',
+    prompt: 'What is the fastest way to build a B+Tree on an existing large table?',
+    options: ['Insert the keys one by one in table order', 'Sort the keys first, then build the tree bottom-up (bulk insert)', 'Insert in random order to balance the tree', 'Build a hash table first'],
+    answer: 1,
+    explain: 'Bulk insert: sort the keys, fill the leaves left to right, then build the inner levels bottom-up — no repeated splits (slide 38).',
+    source: 'Lecture 6, slide 38',
+  },
+  {
+    id: 'm7-q9', module: 'm7', skills: ['bt-cc'], level: 2, type: 'mcq',
+    prompt: 'Why do threads scanning **along leaf sibling pointers** acquire latches in **no-wait** mode?',
+    options: ['To make scans faster', 'Two threads moving in opposite directions could each wait for the other’s latch (deadlock); no-wait gives up and restarts instead', 'Because leaves are never modified', 'Because latches cannot be held on leaves'],
+    answer: 1,
+    explain: 'Top-down crabbing always latches in the same order (root → leaf), so it cannot deadlock. Leaf scans move sideways in either direction, so waiting could deadlock; no-wait avoids it. (Supplementary — syllabus Week 6.)',
+    source: 'Supplementary (syllabus Week 6: deadlock avoidance)',
+  },
+];

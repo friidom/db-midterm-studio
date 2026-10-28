@@ -242,7 +242,7 @@ export function Roadmap() {
           <div className="eyebrow">Course roadmap</div>
           <h1>From relational algebra to indexes</h1>
           <p className="muted">
-            Order follows the syllabus (Weeks 1–6). Learn → check your understanding → practise → pass the module test → unlock what depends on it. Arrows show prerequisites.
+            Order follows the syllabus (Weeks 1–6). Every module is open — follow the order or jump to any topic. Learn → check your understanding → practise → pass the module test to master it.
           </p>
         </div>
       </header>

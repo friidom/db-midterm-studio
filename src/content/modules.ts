@@ -32,7 +32,7 @@ export const MODULES: ModuleDef[] = [
   {
     id: 'm2', num: 2, title: 'Modern SQL', short: 'SQL', week: 'Week 2', lectures: 'Lecture 2',
     blurb: 'Bag semantics, aggregation, GROUP BY / HAVING, NULLs, nested queries, window functions and CTEs — with a real SQL engine.',
-    prereqs: ['m1'],
+    prereqs: [],
     skills: [
       { id: 'sql-basics', label: 'SELECT-FROM-WHERE, joins & bags', lesson: 'm2-l1' },
       { id: 'sql-agg', label: 'Aggregates & GROUP BY', lesson: 'm2-l2' },
@@ -55,7 +55,7 @@ export const MODULES: ModuleDef[] = [
   {
     id: 'm3', num: 3, title: 'Database Storage: Files, Pages & Tuples', short: 'Storage I', week: 'Week 3', lectures: 'Lecture 3',
     blurb: 'Disk-oriented architecture, pages and heap files, slotted pages, tuple layout and data representation, log-structured and index-organized storage.',
-    prereqs: ['m1'],
+    prereqs: [],
     skills: [
       { id: 'st-arch', label: 'Disk-oriented architecture', lesson: 'm3-l1' },
       { id: 'st-pages', label: 'Files, pages & heap files', lesson: 'm3-l1' },
@@ -76,7 +76,7 @@ export const MODULES: ModuleDef[] = [
   {
     id: 'm4', num: 4, title: 'Storage Models (NSM, DSM, PAX) & Compression', short: 'Storage Models', week: 'Week 3', lectures: 'Lecture 4 (part 1)',
     blurb: 'OLTP vs OLAP, row vs column vs hybrid layouts, choosing a layout for a workload, and columnar compression.',
-    prereqs: ['m3'],
+    prereqs: [],
     skills: [
       { id: 'sm-nsm', label: 'NSM (row store)', lesson: 'm4-l1' },
       { id: 'sm-dsm', label: 'DSM (column store)', lesson: 'm4-l1' },
@@ -99,7 +99,7 @@ export const MODULES: ModuleDef[] = [
   {
     id: 'm5', num: 5, title: 'Buffer Pool Management', short: 'Buffer Pool', week: 'Week 4', lectures: 'Lecture 4 (part 2)',
     blurb: 'Frames, page table, pins and dirty pages; why not mmap; LRU, CLOCK, LRU-K, sequential flooding; buffer pool optimizations.',
-    prereqs: ['m3'],
+    prereqs: [],
     skills: [
       { id: 'bp-basics', label: 'Frames, page table, pins, latches', lesson: 'm5-l1' },
       { id: 'bp-os', label: 'Why not mmap / the OS', lesson: 'm5-l1' },
@@ -121,7 +121,7 @@ export const MODULES: ModuleDef[] = [
   {
     id: 'm6', num: 6, title: 'Hash Tables', short: 'Hash Tables', week: 'Week 5', lectures: 'Lecture 5',
     blurb: 'Hash functions, linear probing and tombstones, cuckoo hashing, and the dynamic schemes: chained, extendible and linear hashing.',
-    prereqs: ['m3'],
+    prereqs: [],
     skills: [
       { id: 'ht-basics', label: 'Hash functions & design decisions', lesson: 'm6-l1' },
       { id: 'ht-probe', label: 'Linear probing & deletes', lesson: 'm6-l1' },
@@ -143,7 +143,7 @@ export const MODULES: ModuleDef[] = [
   {
     id: 'm7', num: 7, title: 'B+Tree Indexes', short: 'B+Trees', week: 'Week 6', lectures: 'Lecture 6',
     blurb: 'B+Tree invariants, search, insert with splits, delete with redistribution and merge, composite and clustered indexes, design choices.',
-    prereqs: ['m6'],
+    prereqs: [],
     skills: [
       { id: 'bt-props', label: 'Structure & invariants', lesson: 'm7-l1' },
       { id: 'bt-insert', label: 'Insert & splits', lesson: 'm7-l2' },
@@ -165,7 +165,7 @@ export const MODULES: ModuleDef[] = [
   {
     id: 'm8', num: 8, title: 'Indexes & Filters', short: 'Filters & Indexes', week: 'Week 6', lectures: 'Lecture 7',
     blurb: 'Bloom filters, skip lists, tries and radix trees, inverted and vector indexes.',
-    prereqs: ['m7'],
+    prereqs: [],
     skills: [
       { id: 'ix-bloom', label: 'Bloom & other filters', lesson: 'm8-l1' },
       { id: 'ix-skip', label: 'Skip lists', lesson: 'm8-l2' },

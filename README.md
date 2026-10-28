@@ -18,7 +18,7 @@ Everything runs locally in the browser — no backend, no API keys. Progress is 
 - 8 modules / 35 lessons following the syllabus order (relational algebra → SQL → storage → storage models & compression → buffer pool → hash tables → B+Trees → filters). Every lesson cites its source slides.
 - 139 hand-written questions (MCQ, multi-select, numeric, short answer, ordering, real SQL, relational algebra, step-by-step traces) plus unlimited generated trace questions.
 - Real SQL engine (SQLite via sql.js), relational algebra engine, and simulators for buffer pools (LRU/CLOCK/MRU/LRU-K), linear probing, cuckoo, extendible and linear hashing, B+Trees, Bloom filters, slotted pages, NSM/DSM/PAX layouts, compression, word alignment and LSM compaction.
-- Mastery: modules unlock only after the prerequisite's module test is passed; lesson completion (quick checks) is tracked separately from mastery.
+- Every module is open from the start. Mastery = passing a module's test; lesson completion (quick checks) is tracked separately from mastery.
 
 ## Sources
 

@@ -56,7 +56,7 @@ export function Practice({ module, skill }: { module?: string; skill?: string })
     <div className="page">
       <header className="page-head">
         <div>
-          <div className="eyebrow">Practice{m ? ` · ${m.title}` : ' · all unlocked modules'}</div>
+          <div className="eyebrow">Practice{m ? ` · ${m.title}` : ' · all modules'}</div>
           <h1>{skill ? `Targeted practice: ${SKILL_LABEL[skill]}` : 'Adaptive practice'}</h1>
           <p className="muted">One question at a time. Questions you missed, weak skills and new questions come first. Hints and retries are allowed here; using them lowers the credit towards mastery.</p>
         </div>
@@ -69,7 +69,7 @@ export function Practice({ module, skill }: { module?: string; skill?: string })
       </header>
       <div className="row gap wrap filter-row">
         <a className={`chip ${!m ? 'on' : ''}`} href="#/practice">
-          All unlocked
+          All modules
         </a>
         {MODULES.map((x) => (
           <a key={x.id} className={`chip ${m?.id === x.id ? 'on' : ''} ${isUnlocked(s, x) ? '' : 'disabled'}`} href={isUnlocked(s, x) ? `#/practice/${x.id}` : undefined} aria-disabled={!isUnlocked(s, x)}>
@@ -154,7 +154,7 @@ export function ModuleTest({ id }: { id: string }) {
               ))}
               .
             </li>
-            <li>Passing masters the module and unlocks the modules that depend on it.</li>
+            <li>Passing marks the module as mastered.</li>
           </ul>
           <button className="btn primary lg" onClick={start}>
             Start the test
@@ -198,7 +198,7 @@ export function ModuleTest({ id }: { id: string }) {
           <h1>
             {g.correct} / {g.total} — {g.passed ? 'Passed 🎉' : 'Not passed yet'}
           </h1>
-          <p className="muted">{g.passed ? `${m.short} is mastered${m.id !== 'm8' ? ' and the modules that depend on it are unlocked' : ''}.` : 'Review the skills below, practise, then retake the test (you get a new set of questions).'}</p>
+          <p className="muted">{g.passed ? `${m.short} is mastered.` : 'Review the skills below, practise, then retake the test (you get a new set of questions).'}</p>
         </div>
       </header>
       {!g.passed && (
